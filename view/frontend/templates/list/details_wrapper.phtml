@@ -1,0 +1,17 @@
+<?php
+/**
+ * Copyright (c) Bruno Pelaquin. All rights reserved.
+ * https://github.com/https-pelaquin
+ *
+ * @var \Magento\Framework\View\Element\Template $block
+ */
+
+$priceDiscountBlock = $block->getChildBlock('bp_list_price_discount');
+$installmentBlock = $block->getChildBlock('bp_list_installment');
+?>
+<?php if ($priceDiscountBlock): ?>
+    <?= $priceDiscountBlock->setProduct($block->getProduct())->toHtml() ?>
+<?php endif; ?>
+<?php if ($installmentBlock): ?>
+    <?= $installmentBlock->setProduct($block->getProduct())->toHtml() ?>
+<?php endif; ?>

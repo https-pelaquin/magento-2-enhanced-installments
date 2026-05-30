@@ -1,0 +1,38 @@
+<?php
+/**
+ * Copyright (c) Bruno Pelaquin. All rights reserved.
+ * https://github.com/https-pelaquin
+ *
+ * @var Pelaquin\EnhancedInstallments\Block\Lists\Installment $block
+ */
+
+$product = $block->getProduct();
+$finalPrice = $block->getFinalPrice();
+$discountPercent = $block->getDiscountPercent();
+$installmentElementId = 'bp-installment-price-' . (int) $product->getId();
+?>
+
+<div class="info-price-installment">
+    <p class="bp-full-price">
+        <strong><?= $block->getFormattedFinalPrice(); ?></strong>
+        <?php if ($discountPercent > 0): ?>
+            <span><?= $discountPercent ?>% OFF</span>
+        <?php endif; ?>
+    </p>
+
+    <div id="<?= $installmentElementId ?>" data-product-id="<?= (int) $product->getId() ?>"></div>
+</div>
+
+<script type="text/x-magento-init">
+    {
+        "#<?= $installmentElementId ?>": {
+            "bpPriceBoxInstallment": {
+                "priceConfig": <?= $block->getJsonConfig($product) ?>,
+                "priceBoxSelector": "[data-price-box='product-id-<?= (int)$product->getId() ?>']",
+                "installmentNumber": <?= (int)$block->getInstallmentNumber() ?>,
+                "minimalInstallmentAmount": <?= $block->getMinimalInstallmentAmount() ?>,
+                "productPrice": <?= json_encode($finalPrice) ?>
+            }
+        }
+    }
+</script>

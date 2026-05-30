@@ -1,0 +1,46 @@
+<?xml version="1.0" ?>
+<!--
+/**
+ * Copyright (c) Bruno Pelaquin. All rights reserved.
+ * https://github.com/https-pelaquin
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
+    <system>
+        <tab id="pelaquin" translate="label" sortOrder="200">
+            <label>Pelaquin</label>
+        </tab>
+        <section id="bp_installment_billet_price" translate="label" showInDefault="1" showInWebsite="1" showInStore="1" sortOrder="0">
+            <label>Enhanced Installments</label>
+            <tab>pelaquin</tab>
+            <resource>Pelaquin_EnhancedInstallments::config</resource>
+            <group id="general" showInDefault="1" showInWebsite="1" showInStore="1" translate="label">
+                <label>General</label>
+                <field id="active" canRestore="1" showInDefault="1" showInWebsite="1" showInStore="1" sortOrder="10" translate="label" type="select">
+                    <label>Enable</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Enable or disable the enhanced installments display.</comment>
+                </field>
+
+                <field id="bp_bank_slip_discount" canRestore="1" showInDefault="1" showInWebsite="1" showInStore="1" sortOrder="10" translate="label" type="text">
+                    <label>Bank Slip Discount</label>
+                    <comment>Enter the discount percentage that will be applied to the Bank Slip</comment>
+                </field>
+
+                <field id="bp_pix_discount" canRestore="1" showInDefault="1" showInWebsite="1" showInStore="1" sortOrder="10" translate="label" type="text">
+                    <label>PIX Discount</label>
+                    <comment>Enter the discount percentage that will be applied to the pix</comment>
+                </field>
+
+                <field id="bp_installment_number" canRestore="1" showInDefault="1" showInWebsite="1" showInStore="1" sortOrder="10" translate="label" type="text">
+                    <label>Number of Installments</label>
+                </field>
+
+                <field id="bp_installment_minimal_amount" canRestore="1" showInDefault="1" showInWebsite="1" showInStore="1" sortOrder="10" translate="label" type="text">
+                    <label>Minimal Installment amount</label>
+                    <comment>Add an integer value representing the minimum installment amount in R$.</comment>
+                </field>
+            </group>
+        </section>
+    </system>
+</config>

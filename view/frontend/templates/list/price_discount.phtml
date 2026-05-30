@@ -1,0 +1,37 @@
+<?php
+    /**
+     * Copyright (c) Bruno Pelaquin. All rights reserved.
+     * https://github.com/https-pelaquin
+     * @var Pelaquin\EnhancedInstallments\Block\Lists\PriceDiscount $block
+     */
+
+    $product = $block->getProduct();
+    $unicId = uniqid();
+?>
+
+<span id="bp-billet-price-<?= $product->getId() . '-' . $unicId?>" data-role="priceBox" data-price-type="finalPrice" class="price-wrapper"></span>
+<?php if ($block->hasDiscount()): ?>
+    <div class="msg-discount"><?= __($block->getText(), $block->getDiscountPercent()) ?></div>
+<?php endif; ?>
+
+<script type="text/x-magento-init">
+    {
+        "#bp-billet-price-<?= $product->getId() . '-' . $unicId ?>": {
+            "bpPriceDiscount": {
+                "priceConfig": <?= $block->getJsonConfig($product) ?>,
+                "priceBoxSelector": "[data-price-box='product-id-<?= $product->getId() ?>']",
+                "productPrice": <?= $block->getFinalPrice() ?>,
+                "priceTemplate": "<span class='price'><strong> <%- data.price %></strong></span>",
+                "discount" :  <?= $block->getDiscountPercent()?>
+            }
+        }
+    }
+</script>
+
+<?php if ($block->getData("isSearchRecommendation")):?>
+    <script>
+        require(['jquery'], function($) {
+            $("#bp-billet-price-<?= $product->getId()?>-<?= $unicId ?>").trigger('contentUpdated');
+        });
+    </script>
+<?php endif; ?>
