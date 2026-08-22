@@ -1,8 +1,10 @@
 <?xml version="1.0"?>
 <!--
 /**
- * Copyright (c) Bruno Pelaquin. All rights reserved.
- * https://github.com/https-pelaquin
+ *  Copyright © Bruno Pelaquin. All rights reserved.
+ *
+ *  https://github.com/https-pelaquin
+ *  https://www.linkedin.com/in/bruno-pelaquin/
  */
 -->
 <page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -11,15 +13,14 @@
         <referenceContainer name="product.info.price">
             <block class="Pelaquin\EnhancedInstallments\Block\Product\PriceDiscount"
                 name="bp.product.price.discount"
-                ifconfig="bp_installment_billet_price/general/active"
                 template="Pelaquin_EnhancedInstallments::product/price_discount.phtml"
-                after="product.price.final" />
-
+                after="product.price.final"
+                ifconfig="bp_enhanced_installments/general/active" />
             <block class="Pelaquin\EnhancedInstallments\Block\Product\Installment"
                 name="bp.product.installment"
-                ifconfig="bp_installment_billet_price/general/active"
                 template="Pelaquin_EnhancedInstallments::product/installment.phtml"
-                after="bp.product.price.discount" />
+                after="bp.product.price.discount"
+                ifconfig="bp_enhanced_installments/general/active" />
         </referenceContainer>
     </body>
 </page>

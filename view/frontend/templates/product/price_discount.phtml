@@ -1,70 +1,62 @@
 <?php
 /**
- * Copyright (c) Bruno Pelaquin. All rights reserved.
- * https://github.com/https-pelaquin
- * @var Pelaquin\EnhancedInstallments\Block\Product\PriceDiscount $block
+ *  Copyright © Bruno Pelaquin. All rights reserved.
+ *
+ *  https://github.com/https-pelaquin
+ *  https://www.linkedin.com/in/bruno-pelaquin/
  */
-$product = $block->getProduct();
-$productId = $product->getId();
-$pixDiscount = $block->getDiscountData($product, 'pix', 'bp_pix_discount');
-$bankSlipDiscount = $block->getDiscountData($product, 'boleto', 'bp_bank_slip_discount');
 
+/** @var \Pelaquin\EnhancedInstallments\Block\Product\PriceDiscount $block */
+/** @var \Magento\Framework\Escaper $escaper */
+
+$pixDiscount = $block->getPaymentDiscount('pix');
+$bankSlipDiscount = $block->getPaymentDiscount('boleto');
+$discounts = [
+    [
+        'elementId' => 'bp-pix-price',
+        'percentage' => $pixDiscount,
+        'message' => __('Special PIX price with %1% discount', $pixDiscount),
+    ],
+    [
+        'elementId' => 'bp-bank-slip-discount',
+        'percentage' => $bankSlipDiscount,
+        'message' => __('Special bank slip price with %1% discount', $bankSlipDiscount),
+    ],
+];
+
+if ($bankSlipDiscount > $pixDiscount) {
+    $discounts = array_reverse($discounts);
+}
+
+$discounts = array_values(array_filter(
+    $discounts,
+    static fn (array $discount): bool => $discount['percentage'] > 0
+));
 ?>
+<?php if ($discounts !== []): ?>
+    <?php foreach ($discounts as $index => $discount): ?>
+        <?php if ($index === 0): ?>
+            <div class="main-price-discount">
+                <span id="<?= $escaper->escapeHtmlAttr($discount['elementId']) ?>"
+                      data-role="priceBox"
+                      data-price-type="finalPrice"
+                      class="price-wrapper"></span>
+                <div class="msg-discount">
+                    <?= $escaper->escapeHtml($discount['message']) ?>
+                </div>
+            </div>
+        <?php else: ?>
+            <div class="msg-discount-wrapper">
+                <div class="msg-discount">
+                    <strong id="<?= $escaper->escapeHtmlAttr($discount['elementId']) ?>"
+                            data-role="priceBox"></strong>
+                    <?= $escaper->escapeHtml($discount['message']) ?>
+                </div>
+            </div>
+        <?php endif; ?>
+    <?php endforeach; ?>
 
-<!-- <div class="price-box price-tier_price" data-role="priceBox" data-product-id="<?= $productId ?>" data-price-box="product-id-<?= $productId ?>">
-    <div data-role="tier-price-block"></div>
-</div> -->
-
-<!-- <span data-role="priceBox" class="price" style="display: none"><?= $block->priceForGoogleMerchantCenter($block->getFinalPrice()) ?></span> -->
-
-<?php if ($block->validateBiggestDiscount() == 'pixDiscount'): ?>
-    <div class="main-price-discount">
-        <span id="bp-pix-price" data-role="priceBox" data-price-type="finalPrice" class="price-wrapper"></span>
-
-        <div class="msg-discount"><?= __('special pix price with %1% discount', $pixDiscount) ?></div>
-    </div>
-
-    <div class="msg-discount-wrapper">
-        <div class="msg-discount"><strong id="bp-bank-slip-discount" data-role="priceBox"></strong>
-            <?= __('special bank slip price with %1% discount', $bankSlipDiscount) ?>
-        </div>
-    </div>
-
-<?php else: ?>
-
-    <div class="main-price-discount">
-        <span id="bp-bank-slip-discount" data-role="priceBox" data-price-type="finalPrice" class="price-wrapper">
-        </span>
-
-        <div class="msg-discount"><?= __('special bank slip price with %1% discount', $bankSlipDiscount) ?></div>
-    </div>
-
-    <div class="msg-discount-wrapper">
-        <div class="msg-discount"><strong id="bp-pix-price" data-role="priceBox"></strong>
-            <?= __('special pix price with %1% discount', $pixDiscount) ?>
-        </div>
-    </div>
+    <script type="text/x-magento-init">
+    <?= /* @noEscape */ $block->getWidgetConfig($pixDiscount, $bankSlipDiscount) ?>
+    </script>
 <?php endif; ?>
-
-<script type="text/x-magento-init">
-    {
-        "#bp-pix-price": {
-            "bpPriceDiscount": {
-                "priceConfig": <?= $block->getJsonConfig($product) ?>,
-                "priceBoxSelector": "[data-price-box='product-id-<?= $productId ?>']",
-                "productPrice": <?= $block->getFinalPrice() ?>,
-                "priceTemplate": "<span class='price' style='display: inline-block;'><strong> <%- data.price %> </strong></span>",
-                "discount" :  <?= $pixDiscount ?>
-            }
-        },
-        "#bp-bank-slip-discount": {
-            "bpPriceDiscount": {
-                "priceConfig": <?= $block->getJsonConfig($product) ?>,
-                "priceBoxSelector": "[data-price-box='product-id-<?= $productId ?>']",
-                "productPrice": <?= $block->getFinalPrice() ?>,
-                "priceTemplate": "<span class='price' style='display: inline-block;'><strong> <%- data.price %></strong></span>",
-                "discount" :  <?= $bankSlipDiscount ?>
-            }
-        }
-    }
-</script>

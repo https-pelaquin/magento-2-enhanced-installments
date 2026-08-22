@@ -1,7 +1,9 @@
 <?php
 /**
- * Copyright (c) Bruno Pelaquin. All rights reserved.
- * https://github.com/https-pelaquin
+ *  Copyright © Bruno Pelaquin. All rights reserved.
+ *
+ *  https://github.com/https-pelaquin
+ *  https://www.linkedin.com/in/bruno-pelaquin/
  */
 
 declare(strict_types=1);
@@ -14,31 +16,29 @@ use Magento\Catalog\Block\Product\View;
 use Magento\Catalog\Helper\Product;
 use Magento\Catalog\Model\ProductTypes\ConfigInterface;
 use Magento\Customer\Model\Session;
-use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Json\EncoderInterface;
 use Magento\Framework\Locale\FormatInterface;
 use Magento\Framework\Pricing\PriceCurrencyInterface;
 use Magento\Framework\Stdlib\StringUtils;
 use Magento\Framework\Url\EncoderInterface as UrlEncoderInterface;
-use Magento\Store\Model\ScopeInterface;
+use Pelaquin\EnhancedInstallments\Model\Config;
+use Pelaquin\EnhancedInstallments\Model\PriceCalculator;
 
 class Installment extends View
 {
-    private const BP_INSTALLMENT_NUMBER_PATH = 'bp_installment_billet_price/general/bp_installment_number';
-    private const BP_MINIMAL_INSTALLMENT_AMOUNT_PATH = 'bp_installment_billet_price/general/bp_installment_minimal_amount';
-
     public function __construct(
         Context $context,
         UrlEncoderInterface $urlEncoder,
-        EncoderInterface $jsonEncoder,
+        private readonly EncoderInterface $jsonEncoder,
         StringUtils $string,
         Product $productHelper,
         ConfigInterface $productTypeConfig,
-        FormatInterface $localeFormat,
+        private readonly FormatInterface $localeFormat,
         Session $customerSession,
         ProductRepositoryInterface $productRepository,
         PriceCurrencyInterface $priceCurrency,
-        private readonly ScopeConfigInterface $scopeConfig,
+        private readonly Config $config,
+        private readonly PriceCalculator $priceCalculator,
         array $data = []
     ) {
         parent::__construct(
@@ -51,49 +51,46 @@ class Installment extends View
             $localeFormat,
             $customerSession,
             $productRepository,
-            $priceCurrency
+            $priceCurrency,
+            $data
         );
     }
 
     public function getFinalPrice(): float
     {
-        $product = $this->getProduct();
-
-        if ($product->getTypeId() === 'grouped') {
-            $associatedProducts = $product->getTypeInstance()->getAssociatedProducts($product);
-            $finalPrice = 0.0;
-
-            foreach ($associatedProducts as $_item) {
-                $finalPrice += $_item->getFinalPrice() * $_item->getQty();
-            }
-
-            return $finalPrice;
-        }
-
-        return (float) $product->getPriceInfo()
-            ->getPrice('final_price')
-            ->getAmount()
-            ->getValue();
+        return $this->priceCalculator->getFinalPrice($this->getProduct());
     }
 
     public function getInstallmentNumber(): int
     {
-        return (int) $this->scopeConfig->getValue(self::BP_INSTALLMENT_NUMBER_PATH, ScopeInterface::SCOPE_STORE);
+        return $this->config->getInstallmentNumber();
     }
 
-    public function getMinimalInstallmentAmount(): int
+    public function getMinimalInstallmentAmount(): float
     {
-        $minimalAmount = (int) $this->scopeConfig->getValue(self::BP_MINIMAL_INSTALLMENT_AMOUNT_PATH, ScopeInterface::SCOPE_STORE);
-
-        if ($minimalAmount <= 0) {
-            return 0;
-        }
-
-        return $minimalAmount;
+        return $this->config->getMinimumInstallmentAmount();
     }
 
-    public function getSlipBankDiscount(): float
+    public function getWidgetConfig(): string
     {
-        return $this->getIsEnabledSlipBank() ? (float) $this->getDiscountAmountSlipBank() : 0.0;
+        $product = $this->getProduct();
+
+        return $this->jsonEncoder->encode([
+            '#installment-price' => [
+                'bpPriceBoxInstallment' => [
+                    'priceConfig' => [
+                        'productId' => (int) $product->getId(),
+                        'priceFormat' => $this->localeFormat->getPriceFormat(),
+                    ],
+                    'priceBoxSelector' => sprintf(
+                        '[data-price-box="product-id-%d"]',
+                        (int) $product->getId()
+                    ),
+                    'installmentNumber' => $this->getInstallmentNumber(),
+                    'minimalInstallmentAmount' => $this->getMinimalInstallmentAmount(),
+                    'productPrice' => $this->getFinalPrice(),
+                ],
+            ],
+        ]);
     }
 }

@@ -1,32 +1,35 @@
 <?php
 /**
- * Copyright (c) Bruno Pelaquin. All rights reserved.
- * https://github.com/https-pelaquin
+ *  Copyright © Bruno Pelaquin. All rights reserved.
+ *
+ *  https://github.com/https-pelaquin
+ *  https://www.linkedin.com/in/bruno-pelaquin/
  */
 
 declare(strict_types=1);
 
 namespace Pelaquin\EnhancedInstallments\Block\Lists;
 
-use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Catalog\Model\Product;
 use Magento\Framework\Json\EncoderInterface;
 use Magento\Framework\Locale\FormatInterface;
 use Magento\Framework\Pricing\Helper\Data as PricingHelper;
 use Magento\Framework\View\Element\Template;
 use Magento\Framework\View\Element\Template\Context;
-use Magento\Store\Model\ScopeInterface;
+use Pelaquin\EnhancedInstallments\Model\Config;
+use Pelaquin\EnhancedInstallments\Model\PriceCalculator;
 
 class Installment extends Template
 {
-    private const BP_INSTALLMENT_NUMBER_PATH = 'bp_installment_billet_price/general/bp_installment_number';
-    private const BP_MINIMAL_INSTALLMENT_AMOUNT_PATH = 'bp_installment_billet_price/general/bp_installment_minimal_amount';
+    private ?float $finalPrice = null;
 
     public function __construct(
         Context $context,
         private readonly FormatInterface $localeFormat,
         private readonly EncoderInterface $jsonEncoder,
-        private readonly ScopeConfigInterface $scopeConfig,
+        private readonly Config $config,
         private readonly PricingHelper $pricingHelper,
+        private readonly PriceCalculator $priceCalculator,
         array $data = []
     ) {
         parent::__construct($context, $data);
@@ -34,44 +37,17 @@ class Installment extends Template
 
     public function getInstallmentNumber(): int
     {
-        return (int) $this->scopeConfig->getValue(self::BP_INSTALLMENT_NUMBER_PATH, ScopeInterface::SCOPE_STORE);
+        return $this->config->getInstallmentNumber();
     }
 
-    public function getPriceFormat(): array
+    public function getMinimalInstallmentAmount(): float
     {
-        return $this->localeFormat->getPriceFormat();
-    }
-
-    public function getJsonConfig($product): string
-    {
-        $config = [
-            'productId' => $product->getId(),
-            'priceFormat' => $this->localeFormat->getPriceFormat()
-        ];
-
-        return $this->jsonEncoder->encode($config);
-    }
-
-    public function getMinimalInstallmentAmount(): int
-    {
-        $minimalAmount = (int) $this->scopeConfig->getValue(self::BP_MINIMAL_INSTALLMENT_AMOUNT_PATH, ScopeInterface::SCOPE_STORE);
-
-        if ($minimalAmount <= 0) {
-            return 0;
-        }
-
-        return $minimalAmount;
+        return $this->config->getMinimumInstallmentAmount();
     }
 
     public function getFinalPrice(): float
     {
-        $product = $this->getProduct();
-
-        return match ($product->getTypeId()) {
-            'grouped' => $this->priceGrouped($product),
-            'simple' => $this->priceSimple($product),
-            default => (float) $product->getFinalPrice()
-        };
+        return $this->finalPrice ??= $this->priceCalculator->getFinalPrice($this->getProduct());
     }
 
     public function getFormattedFinalPrice(): string
@@ -81,34 +57,29 @@ class Installment extends Template
 
     public function getDiscountPercent(): int
     {
-        $product = $this->getProduct();
-        $regularPrice = (float) $product->getPriceInfo()
-            ->getPrice('regular_price')
-            ->getAmount()
-            ->getValue();
-        $finalPrice = $this->getFinalPrice();
-
-        if ($regularPrice <= 0 || $finalPrice < 0) {
-            return 0;
-        }
-
-        return (int) round(max(0, (($regularPrice - $finalPrice) / $regularPrice) * 100));
+        return (int) round(
+            $this->priceCalculator->getCatalogDiscount($this->getProduct(), $this->getFinalPrice())
+        );
     }
 
-    private function priceSimple($product): float
+    public function getWidgetConfig(Product $product, string $elementId): string
     {
-        return $product->getTierPrices() ? (float) min($product->getFinalPrice(), $product->getTierPrice(1)) : (float) $product->getFinalPrice();
-    }
-
-    private function priceGrouped($product): float
-    {
-        $associatedProducts = $product->getTypeInstance()->getAssociatedProducts($product);
-        $finalPrice = 0.0;
-
-        foreach ($associatedProducts as $_item) {
-            $finalPrice += $_item->getFinalPrice() * $_item->getQty();
-        }
-
-        return $finalPrice;
+        return $this->jsonEncoder->encode([
+            '#' . $elementId => [
+                'bpPriceBoxInstallment' => [
+                    'priceConfig' => [
+                        'productId' => (int) $product->getId(),
+                        'priceFormat' => $this->localeFormat->getPriceFormat(),
+                    ],
+                    'priceBoxSelector' => sprintf(
+                        '[data-price-box="product-id-%d"]',
+                        (int) $product->getId()
+                    ),
+                    'installmentNumber' => $this->getInstallmentNumber(),
+                    'minimalInstallmentAmount' => $this->getMinimalInstallmentAmount(),
+                    'productPrice' => $this->getFinalPrice(),
+                ],
+            ],
+        ]);
     }
 }

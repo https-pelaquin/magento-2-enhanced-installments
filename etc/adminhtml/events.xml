@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<!--
+/**
+ *  Copyright © Bruno Pelaquin. All rights reserved.
+ *
+ *  https://github.com/https-pelaquin
+ *  https://www.linkedin.com/in/bruno-pelaquin/
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+    <event name="catalog_product_save_before">
+        <observer name="pelaquin_enhanced_installments_save_discount_per_group"
+                  instance="Pelaquin\EnhancedInstallments\Observer\SaveDiscountPerGroup" />
+    </event>
+</config>

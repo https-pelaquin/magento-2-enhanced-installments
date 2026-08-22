@@ -1,44 +1,111 @@
-<?xml version="1.0" ?>
+<?xml version="1.0"?>
 <!--
 /**
- * Copyright (c) Bruno Pelaquin. All rights reserved.
- * https://github.com/https-pelaquin
+ *  Copyright © Bruno Pelaquin. All rights reserved.
+ *
+ *  https://github.com/https-pelaquin
+ *  https://www.linkedin.com/in/bruno-pelaquin/
  */
 -->
-<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
     <system>
         <tab id="pelaquin" translate="label" sortOrder="200">
             <label>Pelaquin</label>
         </tab>
-        <section id="bp_installment_billet_price" translate="label" showInDefault="1" showInWebsite="1" showInStore="1" sortOrder="0">
+        <section id="bp_enhanced_installments"
+                 translate="label"
+                 type="text"
+                 sortOrder="200"
+                 showInDefault="1"
+                 showInWebsite="1"
+                 showInStore="1">
             <label>Enhanced Installments</label>
             <tab>pelaquin</tab>
             <resource>Pelaquin_EnhancedInstallments::config</resource>
-            <group id="general" showInDefault="1" showInWebsite="1" showInStore="1" translate="label">
+            <group id="general"
+                   translate="label"
+                   type="text"
+                   sortOrder="10"
+                   showInDefault="1"
+                   showInWebsite="1"
+                   showInStore="1">
                 <label>General</label>
-                <field id="active" canRestore="1" showInDefault="1" showInWebsite="1" showInStore="1" sortOrder="10" translate="label" type="select">
+                <field id="active"
+                       translate="label comment"
+                       type="select"
+                       sortOrder="10"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="1"
+                       canRestore="1">
                     <label>Enable</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
-                    <comment>Enable or disable the enhanced installments display.</comment>
+                    <comment>Enable payment discounts and installment information on the storefront.</comment>
                 </field>
-
-                <field id="bp_bank_slip_discount" canRestore="1" showInDefault="1" showInWebsite="1" showInStore="1" sortOrder="10" translate="label" type="text">
-                    <label>Bank Slip Discount</label>
-                    <comment>Enter the discount percentage that will be applied to the Bank Slip</comment>
+                <field id="bp_bank_slip_discount"
+                       translate="label comment"
+                       type="text"
+                       sortOrder="20"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="1"
+                       canRestore="1">
+                    <label>Bank Slip Discount (%)</label>
+                    <comment>Default percentage used when the product and customer group do not override it.</comment>
+                    <backend_model>Pelaquin\EnhancedInstallments\Model\Config\Backend\Percentage</backend_model>
+                    <validate>required-entry validate-number validate-number-range number-range-0-100</validate>
+                    <depends>
+                        <field id="active">1</field>
+                    </depends>
                 </field>
-
-                <field id="bp_pix_discount" canRestore="1" showInDefault="1" showInWebsite="1" showInStore="1" sortOrder="10" translate="label" type="text">
-                    <label>PIX Discount</label>
-                    <comment>Enter the discount percentage that will be applied to the pix</comment>
+                <field id="bp_pix_discount"
+                       translate="label comment"
+                       type="text"
+                       sortOrder="30"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="1"
+                       canRestore="1">
+                    <label>PIX Discount (%)</label>
+                    <comment>Default percentage used when the product and customer group do not override it.</comment>
+                    <backend_model>Pelaquin\EnhancedInstallments\Model\Config\Backend\Percentage</backend_model>
+                    <validate>required-entry validate-number validate-number-range number-range-0-100</validate>
+                    <depends>
+                        <field id="active">1</field>
+                    </depends>
                 </field>
-
-                <field id="bp_installment_number" canRestore="1" showInDefault="1" showInWebsite="1" showInStore="1" sortOrder="10" translate="label" type="text">
-                    <label>Number of Installments</label>
+                <field id="bp_installment_number"
+                       translate="label comment"
+                       type="text"
+                       sortOrder="40"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="1"
+                       canRestore="1">
+                    <label>Maximum Number of Installments</label>
+                    <comment>Maximum number of interest-free credit card installments.</comment>
+                    <backend_model>Pelaquin\EnhancedInstallments\Model\Config\Backend\PositiveInteger</backend_model>
+                    <validate>required-entry validate-digits validate-greater-than-zero</validate>
+                    <depends>
+                        <field id="active">1</field>
+                    </depends>
                 </field>
-
-                <field id="bp_installment_minimal_amount" canRestore="1" showInDefault="1" showInWebsite="1" showInStore="1" sortOrder="10" translate="label" type="text">
-                    <label>Minimal Installment amount</label>
-                    <comment>Add an integer value representing the minimum installment amount in R$.</comment>
+                <field id="bp_installment_minimal_amount"
+                       translate="label comment"
+                       type="text"
+                       sortOrder="50"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="1"
+                       canRestore="1">
+                    <label>Minimum Installment Amount</label>
+                    <comment>Minimum value per installment in the store currency. Use 0 to disable the limit.</comment>
+                    <backend_model>Pelaquin\EnhancedInstallments\Model\Config\Backend\NonNegativeNumber</backend_model>
+                    <validate>required-entry validate-number validate-zero-or-greater</validate>
+                    <depends>
+                        <field id="active">1</field>
+                    </depends>
                 </field>
             </group>
         </section>

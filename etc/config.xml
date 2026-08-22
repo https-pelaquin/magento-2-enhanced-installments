@@ -1,20 +1,23 @@
-<?xml version="1.0" ?>
+<?xml version="1.0"?>
 <!--
 /**
- * Copyright (c) Bruno Pelaquin. All rights reserved.
- * https://github.com/https-pelaquin
+ *  Copyright © Bruno Pelaquin. All rights reserved.
+ *
+ *  https://github.com/https-pelaquin
+ *  https://www.linkedin.com/in/bruno-pelaquin/
  */
 -->
-<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
     <default>
-        <bp_installment_billet_price>
+        <bp_enhanced_installments>
             <general>
-                <active>1</active>
+                <active>0</active>
                 <bp_bank_slip_discount>5</bp_bank_slip_discount>
                 <bp_pix_discount>5</bp_pix_discount>
                 <bp_installment_number>10</bp_installment_number>
                 <bp_installment_minimal_amount>0</bp_installment_minimal_amount>
             </general>
-        </bp_installment_billet_price>
+        </bp_enhanced_installments>
     </default>
 </config>

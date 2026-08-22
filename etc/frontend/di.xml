@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<!--
+/**
+ *  Copyright © Bruno Pelaquin. All rights reserved.
+ *
+ *  https://github.com/https-pelaquin
+ *  https://www.linkedin.com/in/bruno-pelaquin/
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <type name="Magento\Checkout\CustomerData\Cart">
+        <plugin name="pelaquin_enhanced_installments_cart"
+                type="Pelaquin\EnhancedInstallments\Plugin\CartPlugin"/>
+    </type>
+    <type name="Magento\Catalog\Block\Product\ListProduct">
+        <plugin name="pelaquin_enhanced_installments_product_list"
+                type="Pelaquin\EnhancedInstallments\Plugin\ListPricePlugin"/>
+    </type>
+    <type name="Magento\CatalogWidget\Block\Product\ProductsList">
+        <plugin name="pelaquin_enhanced_installments_product_widget"
+                type="Pelaquin\EnhancedInstallments\Plugin\ListPricePlugin"/>
+    </type>
+    <type name="MageWorx\SearchSuiteAutocomplete\Block\Product">
+        <plugin name="pelaquin_enhanced_installments_search_recommendation"
+                type="Pelaquin\EnhancedInstallments\Plugin\SearchRecommendationPlugin"/>
+    </type>
+</config>

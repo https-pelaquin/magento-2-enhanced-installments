@@ -1,21 +1,16 @@
-<?xml version="1.0" ?>
+<?xml version="1.0"?>
 <!--
 /**
- * Copyright (c) Bruno Pelaquin. All rights reserved.
- * https://github.com/https-pelaquin
+ *  Copyright © Bruno Pelaquin. All rights reserved.
+ *
+ *  https://github.com/https-pelaquin
+ *  https://www.linkedin.com/in/bruno-pelaquin/
  */
 -->
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
-    <type name="MageWorx\SearchSuiteAutocomplete\Block\Product">
-        <plugin name="pelaquin_searchsuite_product_block_plugin"
-                type="Pelaquin\EnhancedInstallments\Plugin\SearchRecommendationPlugin" />
-    </type>
-    <type name="Magento\Checkout\CustomerData\Cart">
-        <plugin name="custom_cart_section_plugin" type="Pelaquin\EnhancedInstallments\Plugin\CartPlugin" />
+    <type name="Magento\Catalog\Api\ProductRepositoryInterface">
+        <plugin name="pelaquin_enhanced_installments_product_repository"
+                type="Pelaquin\EnhancedInstallments\Plugin\ProductRepositoryPlugin"/>
     </type>
 </config>
-
-
-
-

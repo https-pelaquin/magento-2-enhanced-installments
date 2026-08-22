@@ -1,26 +1,14 @@
 <?php
 /**
- * Copyright (c) Bruno Pelaquin. All rights reserved.
- * https://github.com/https-pelaquin
- * @var Pelaquin\EnhancedInstallments\Block\Product\Installment $block
+ *  Copyright © Bruno Pelaquin. All rights reserved.
+ *
+ *  https://github.com/https-pelaquin
+ *  https://www.linkedin.com/in/bruno-pelaquin/
  */
 
-$product = $block->getProduct();
+/** @var \Pelaquin\EnhancedInstallments\Block\Product\Installment $block */
 ?>
-
 <div data-role="priceBoxInstallment" id="installment-price"></div>
 <script type="text/x-magento-init">
-    {
-        "#installment-price": {
-            "bpPriceBoxInstallment": {
-                "priceConfig": <?= $block->getJsonConfig($product) ?>,
-                "priceBoxSelector": "[data-price-box='product-id-<?= $product->getId() ?>']",
-                "installmentNumber": <?= $block->getInstallmentNumber() ?>,
-                "minimalInstallmentAmount": <?= $block->getMinimalInstallmentAmount() ?>,
-                "productPrice": <?= $block->getFinalPrice() ?>,
-                "priceTemplate": "<span class='price'>ou <strong><%- data.installment %>x de <%- data.price %></strong> sem juros</span>",
-                "discount": <?= $block->getSlipBankDiscount() ?>
-            }
-        }
-    }
+<?= /* @noEscape */ $block->getWidgetConfig() ?>
 </script>

@@ -1,38 +1,27 @@
 <?php
 /**
- * Copyright (c) Bruno Pelaquin. All rights reserved.
- * https://github.com/https-pelaquin
+ *  Copyright © Bruno Pelaquin. All rights reserved.
  *
- * @var Pelaquin\EnhancedInstallments\Block\Lists\Installment $block
+ *  https://github.com/https-pelaquin
+ *  https://www.linkedin.com/in/bruno-pelaquin/
  */
 
-$product = $block->getProduct();
-$finalPrice = $block->getFinalPrice();
-$discountPercent = $block->getDiscountPercent();
-$installmentElementId = 'bp-installment-price-' . (int) $product->getId();
-?>
+/** @var \Pelaquin\EnhancedInstallments\Block\Lists\Installment $block */
+/** @var \Magento\Framework\Escaper $escaper */
 
+$product = $block->getProduct();
+$discountPercent = $block->getDiscountPercent();
+$installmentElementId = 'bp-installment-price-' . (int) $product->getId() . '-' . uniqid();
+?>
 <div class="info-price-installment">
     <p class="bp-full-price">
-        <strong><?= $block->getFormattedFinalPrice(); ?></strong>
         <?php if ($discountPercent > 0): ?>
-            <span><?= $discountPercent ?>% OFF</span>
+            <span><?= $escaper->escapeHtml(__('%1% OFF', $discountPercent)) ?></span>
         <?php endif; ?>
     </p>
-
-    <div id="<?= $installmentElementId ?>" data-product-id="<?= (int) $product->getId() ?>"></div>
+    <div id="<?= $escaper->escapeHtmlAttr($installmentElementId) ?>"
+         data-product-id="<?= (int) $product->getId() ?>"></div>
 </div>
-
 <script type="text/x-magento-init">
-    {
-        "#<?= $installmentElementId ?>": {
-            "bpPriceBoxInstallment": {
-                "priceConfig": <?= $block->getJsonConfig($product) ?>,
-                "priceBoxSelector": "[data-price-box='product-id-<?= (int)$product->getId() ?>']",
-                "installmentNumber": <?= (int)$block->getInstallmentNumber() ?>,
-                "minimalInstallmentAmount": <?= $block->getMinimalInstallmentAmount() ?>,
-                "productPrice": <?= json_encode($finalPrice) ?>
-            }
-        }
-    }
+<?= /* @noEscape */ $block->getWidgetConfig($product, $installmentElementId) ?>
 </script>

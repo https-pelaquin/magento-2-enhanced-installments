@@ -1,29 +1,47 @@
 /**
- * Copyright (c) Bruno Pelaquin. All rights reserved.
- * https://github.com/https-pelaquin
+ *  Copyright © Bruno Pelaquin. All rights reserved.
+ *
+ *  https://github.com/https-pelaquin
+ *  https://www.linkedin.com/in/bruno-pelaquin/
  */
 
 define([
     'jquery',
     'mage/template',
-    'Magento_Catalog/js/price-utils',
-], function($, mageTemplate, utils) {
+    'mage/translate',
+    'Magento_Catalog/js/price-utils'
+], function ($, mageTemplate, $t, priceUtils) {
     'use strict';
 
     $.widget('mage.priceBoxInstallment', {
         options: {
-            onSaleTemplate: '<span class="price">ou <strong><%- data.installment %>x de <%- data.price %></strong> sem juros</span>',
-            priceToCalculate: null,
-            baseInstallmentNumber: null
+            onSaleTemplate: '<span class="price"><%- data.orText %> ' +
+                '<strong><%- data.installment %>x <%- data.ofText %> <%- data.price %></strong> ' +
+                '<%- data.interestFreeText %></span>',
+            installmentNumber: 1,
+            minimalInstallmentAmount: 0,
+            productPrice: 0
         },
 
-        _create: function() {
-            this.options.priceToCalculate = this.options.productPrice;
-            this.options.baseInstallmentNumber = this.options.installmentNumber;
+        _create: function () {
+            this.options.productPrice = this._toNumber(this.options.productPrice, 0);
+            this.options.installmentNumber = Math.max(
+                1,
+                Math.floor(this._toNumber(this.options.installmentNumber, 1))
+            );
+            this.options.minimalInstallmentAmount = Math.max(
+                0,
+                this._toNumber(this.options.minimalInstallmentAmount, 0)
+            );
+            this.template = mageTemplate(
+                this.options.priceTemplate || this.options.onSaleTemplate
+            );
             this.priceBox = $(this.options.priceBoxSelector).first();
 
             if (this.priceBox.length) {
-                this.priceBox.on('priceUpdated', this.updatePrice.bind(this));
+                this._on(this.priceBox, {
+                    priceUpdated: this.updatePrice
+                });
             }
 
             this.updatePrice(null, {
@@ -33,69 +51,78 @@ define([
             });
         },
 
-        updatePrice: function(event, prices) {
-            var finalPrice = this.options.productPrice;
-            var installmentData;
+        updatePrice: function (event, prices) {
+            var installmentData = this._calculateInstallment(this._getFinalPrice(prices));
 
-            if (prices && prices.finalPrice && typeof prices.finalPrice.amount !== 'undefined') {
-                finalPrice = prices.finalPrice.amount;
-            } else if (prices && prices.prices && prices.prices.finalPrice &&
-                typeof prices.prices.finalPrice.amount !== 'undefined') {
-                finalPrice = this.options.productPrice + prices.prices.finalPrice.amount;
-            }
-
-            installmentData = this.calculateInstallment(finalPrice);
-            installmentData.price = this.getFormattedPrice(installmentData.price);
+            installmentData.price = priceUtils.formatPrice(
+                installmentData.price,
+                this.options.priceConfig.priceFormat
+            );
             this._renderTemplate(installmentData);
         },
 
-        calculateInstallment: function(price) {
-            var installmentNumber = this.options.baseInstallmentNumber;
-            var installmentPrice = price / installmentNumber;
+        _getFinalPrice: function (prices) {
+            if (prices && prices.finalPrice && typeof prices.finalPrice.amount !== 'undefined') {
+                return this._toNumber(prices.finalPrice.amount, this.options.productPrice);
+            }
 
-            installmentPrice = this.roundUp(installmentPrice, 2);
+            if (prices && prices.prices && prices.prices.finalPrice &&
+                typeof prices.prices.finalPrice.amount !== 'undefined'
+            ) {
+                return this.options.productPrice +
+                    this._toNumber(prices.prices.finalPrice.amount, 0);
+            }
 
-            if (installmentPrice < this.options.minimalInstallmentAmount) {
-                while (installmentPrice < this.options.minimalInstallmentAmount && installmentNumber > 1) {
-                    installmentNumber -= 1;
-                    installmentPrice = price / installmentNumber;
-                    installmentPrice = this.roundUp(installmentPrice, 2);
-                }
+            return this.options.productPrice;
+        },
+
+        _calculateInstallment: function (price) {
+            var installmentNumber = this.options.installmentNumber;
+
+            price = Math.max(0, this._toNumber(price, 0));
+            if (price === 0) {
+                return {
+                    installmentNumber: 1,
+                    price: 0
+                };
+            }
+
+            if (this.options.minimalInstallmentAmount > 0) {
+                installmentNumber = Math.min(
+                    installmentNumber,
+                    Math.max(
+                        1,
+                        Math.floor(price / this.options.minimalInstallmentAmount)
+                    )
+                );
             }
 
             return {
                 installmentNumber: installmentNumber,
-                price: installmentPrice,
-                finalPrice: price
+                price: this._round(price / installmentNumber)
             };
         },
 
-        getFormattedPrice: function(price) {
-            return utils.formatPrice(price, this.options.priceConfig.priceFormat);
-        },
-
-        _renderTemplate: function(priceData) {
-            var priceTemplate;
-
-            if (this.options.priceTemplate) {
-                priceTemplate = mageTemplate(this.options.priceTemplate);
-            } else {
-                priceTemplate = mageTemplate(this.options.onSaleTemplate);
-            }
-
-            $(this.element).html(priceTemplate({
+        _renderTemplate: function (priceData) {
+            this.element.html(this.template({
                 data: {
-                    finalPrice: priceData.finalPrice,
-                    discount: this.options.discount,
                     installment: priceData.installmentNumber,
-                    price: priceData.price
+                    price: priceData.price,
+                    orText: $t('or'),
+                    ofText: $t('of'),
+                    interestFreeText: $t('without interest')
                 }
             }));
         },
 
-        roundUp: function(num, precision) {
-            precision = Math.pow(10, precision);
-            return Math.round(num * precision) / precision;
+        _round: function (number) {
+            return Math.round(number * 100) / 100;
+        },
+
+        _toNumber: function (value, fallback) {
+            var number = Number(value);
+
+            return Number.isFinite(number) ? number : fallback;
         }
     });
 

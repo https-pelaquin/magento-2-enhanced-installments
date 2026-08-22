@@ -1,123 +1,105 @@
 <?php
 /**
- * Copyright (c) Bruno Pelaquin. All rights reserved.
- * https://github.com/https-pelaquin
+ *  Copyright © Bruno Pelaquin. All rights reserved.
+ *
+ *  https://github.com/https-pelaquin
+ *  https://www.linkedin.com/in/bruno-pelaquin/
  */
 
 declare(strict_types=1);
 
 namespace Pelaquin\EnhancedInstallments\Block\Lists;
 
-use Magento\Framework\View\Element\Template\Context;
-use Magento\Framework\Locale\FormatInterface;
+use Magento\Catalog\Model\Product;
 use Magento\Framework\Json\EncoderInterface;
-use Magento\Framework\App\Config\ScopeConfigInterface;
-use Magento\Store\Model\ScopeInterface;
+use Magento\Framework\Locale\FormatInterface;
 use Magento\Framework\View\Element\Template;
-use Magento\Customer\Model\Session;
-use Pelaquin\EnhancedInstallments\Helper\Data;
+use Magento\Framework\View\Element\Template\Context;
+use Pelaquin\EnhancedInstallments\Model\DiscountResolver;
+use Pelaquin\EnhancedInstallments\Model\PaymentMethod;
+use Pelaquin\EnhancedInstallments\Model\PriceCalculator;
 
 class PriceDiscount extends Template
 {
+    /**
+     * @var array{type: string, percentage: float}|null
+     */
+    private ?array $bestDiscount = null;
+
     public function __construct(
         Context $context,
         private readonly FormatInterface $localeFormat,
-        private readonly EncoderInterface $_jsonEncoder,
-        private readonly ScopeConfigInterface $scopeConfig,
-        private readonly Session $customerSession,
-        private readonly Data $helper,
+        private readonly EncoderInterface $jsonEncoder,
+        private readonly DiscountResolver $discountResolver,
+        private readonly PriceCalculator $priceCalculator,
         array $data = []
-    ){
+    ) {
         parent::__construct($context, $data);
     }
 
-    public function getJsonConfig($product)
+    public function getFinalPrice(): float
     {
-        $config = [
-            'productId' => $product->getId(),
-            'priceFormat' => $this->localeFormat->getPriceFormat()
-        ];
-        return $this->_jsonEncoder->encode($config);
+        return $this->priceCalculator->getFinalPrice($this->getProduct());
     }
 
-    public function getFinalPrice()
+    public function getText(): string
     {
-        $product = $this->getProduct();
-
-        return match ($product->getTypeId()) {
-            "grouped" => $this->priceGrouped($product),
-            "simple" => $this->priceSimple($product),
-            default => $product->getFinalPrice()
-        };
+        return $this->getBestDiscount()['type'] === 'bankSlipDiscount'
+            ? 'Special price with %1% discount'
+            : 'via PIX (%1% discount)';
     }
 
-    private function getDiscountData($productArrayKey, $storeUrlKey)
+    public function getDiscountPercent(): float
     {
-        if(!empty($this->getProduct()->getData('bp_slip_discount_per_group'))){
-            $discountJson = json_decode($this->getProduct()->getData('bp_slip_discount_per_group'), true);
-            foreach ($discountJson['product_slip_discount_field'] as $discount) {
-                if ($discount['customer_group'] == $this->getCustomerGroup() && $discount['discount_type'] == $productArrayKey) {
-                    return $discount['discount'];
-                }
-            }
+        return $this->getBestDiscount()['percentage'];
+    }
+
+    public function hasDiscount(): bool
+    {
+        return $this->getDiscountPercent() > 0;
+    }
+
+    public function getWidgetConfig(Product $product, string $elementId): string
+    {
+        return $this->jsonEncoder->encode([
+            '#' . $elementId => [
+                'bpPriceDiscount' => [
+                    'priceConfig' => [
+                        'productId' => (int) $product->getId(),
+                        'priceFormat' => $this->localeFormat->getPriceFormat(),
+                    ],
+                    'priceBoxSelector' => sprintf(
+                        '[data-price-box="product-id-%d"]',
+                        (int) $product->getId()
+                    ),
+                    'productPrice' => $this->getFinalPrice(),
+                    'discount' => $this->getDiscountPercent(),
+                ],
+            ],
+        ]);
+    }
+
+    private function getPaymentDiscount(string $paymentMethod): float
+    {
+        return $this->discountResolver->getDiscount($this->getProduct(), $paymentMethod);
+    }
+
+    /**
+     * @return array{type: string, percentage: float}
+     */
+    private function getBestDiscount(): array
+    {
+        if ($this->bestDiscount !== null) {
+            return $this->bestDiscount;
         }
 
-        $productPercent = $this->getProduct()->getCustomAttribute($productArrayKey == 'pix' ? 'bp_pix_discount' : 'bp_bank_slip_discount');
-        return (empty($productPercent)) ? $this->scopeConfig->getValue('bp_installment_billet_price/general/'. $storeUrlKey, ScopeInterface::SCOPE_STORE) : $productPercent->getValue();
-    }
+        $pixDiscount = $this->getPaymentDiscount(PaymentMethod::PIX);
+        $bankSlipDiscount = $this->getPaymentDiscount(PaymentMethod::BANK_SLIP);
 
-    public function validateBiggestDiscount() : string
-    {
-        $pixPercent = $this->getDiscountData("pix", "bp_pix_discount");
-        $bankSlipPercent = $this->getDiscountData("boleto", "bp_bank_slip_discount");
-        if ($bankSlipPercent > $pixPercent) {
-            return "bankSlipDiscount";
-        }
+        $this->bestDiscount = $bankSlipDiscount > $pixDiscount
+            ? ['type' => 'bankSlipDiscount', 'percentage' => $bankSlipDiscount]
+            : ['type' => 'pixDiscount', 'percentage' => $pixDiscount];
 
-        return "pixDiscount";
-    }
-
-    public function getText() : string
-    {
-        if ($this->validateBiggestDiscount() == "bankSlipDiscount") {
-            return "special price with %1% discount";
-        }
-
-        return "on pix (%1% discount)";
-    }
-
-    public function getDiscountPercent()
-    {
-        if ($this->validateBiggestDiscount() == "bankSlipDiscount") {
-            return $this->getDiscountData("boleto", "bp_bank_slip_discount");
-        }
-
-        return $this->getDiscountData("pix", "bp_pix_discount");
-    }
-
-    private function priceGrouped($product) : float
-    {
-        $associatedProducts = $product->getTypeInstance()->getAssociatedProducts($product);
-        $finalPrice = 0;
-        foreach ($associatedProducts as $_item) {
-            $finalPrice += $_item->getFinalPrice() * $_item->getQty();
-        }
-
-        return $finalPrice;
-    }
-
-    private function priceSimple($product)
-    {
-        return $product->getTierPrices() ? min($product->getFinalPrice(), $product->getTierPrice(1)) : $product->getFinalPrice();
-    }
-
-    public function hasDiscount() : bool
-    {
-        return $this->getDiscountPercent() != 0;
-    }
-
-    public function getCustomerGroup()
-    {
-        return $this->customerSession->getCustomerGroupId();
+        return $this->bestDiscount;
     }
 }

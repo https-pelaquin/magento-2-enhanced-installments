@@ -1,113 +1,139 @@
 <?php
 /**
- * Copyright (c) Bruno Pelaquin. All rights reserved.
- * https://github.com/https-pelaquin
+ *  Copyright © Bruno Pelaquin. All rights reserved.
+ *
+ *  https://github.com/https-pelaquin
+ *  https://www.linkedin.com/in/bruno-pelaquin/
  */
 
 declare(strict_types=1);
 
 namespace Pelaquin\EnhancedInstallments\Plugin;
 
-use Magento\Framework\Pricing\Helper\Data as PricingHelper;
 use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory;
-use Magento\Framework\Api\SearchCriteriaBuilder;
-use Magento\Store\Model\ScopeInterface;
-use Magento\Framework\App\Config\ScopeConfigInterface;
-use Magento\Customer\Model\Session;
 use Magento\Checkout\CustomerData\Cart;
-use Pelaquin\EnhancedInstallments\Helper\Data as Helper;
+use Magento\Framework\Pricing\Helper\Data as PricingHelper;
+use Pelaquin\EnhancedInstallments\Model\Config;
+use Pelaquin\EnhancedInstallments\Model\DiscountResolver;
+use Pelaquin\EnhancedInstallments\Model\InstallmentCalculator;
+use Pelaquin\EnhancedInstallments\Model\PaymentMethod;
+use Pelaquin\EnhancedInstallments\Model\PriceCalculator;
+use Pelaquin\EnhancedInstallments\Model\ProductAttribute;
 
 class CartPlugin
 {
     public function __construct(
-        private readonly PricingHelper $princingHelper,
-        private readonly ScopeConfigInterface $scopeConfig,
+        private readonly PricingHelper $pricingHelper,
         private readonly CollectionFactory $productCollectionFactory,
-        private readonly SearchCriteriaBuilder $searchCriteriaBuilder,
-        private readonly Session $customerSession,
-        private readonly Helper $helper
-    ) {}
+        private readonly Config $config,
+        private readonly DiscountResolver $discountResolver,
+        private readonly PriceCalculator $priceCalculator,
+        private readonly InstallmentCalculator $installmentCalculator
+    ) {
+    }
 
-    public function afterGetSectionData(Cart $subject, array $result)
+    public function afterGetSectionData(Cart $subject, array $result): array
     {
-        $pixSubtotalAmountWithDiscount = 0;
-        $installmentNumber = $this->helper->getInstallmentNumber();
-
-        $productIds = [];
-
-        // Validating and Separating Cart Product IDs
-        if (isset($result['items']) && is_array($result['items'])) {
-            foreach ($result['items'] as $item) {
-                if (!empty($item['product_id'])) {
-                    $productIds[] = $item['product_id'];
-                }
-            }
+        if (!$this->config->isEnabled()) {
+            return $result;
         }
 
-        if (!empty($productIds)) {
-            // Creating a Collection to retrieve data from all products in the cart
-            $collection = $this->productCollectionFactory->create();
-            $collection->addAttributeToSelect(['price', 'bp_slip_discount_per_group', 'bp_pix_discount', 'billet_price']);
-            $collection->addFieldToFilter('entity_id', ['in' => $productIds]);
+        $items = $result['items'] ?? [];
+        $pixSubtotal = $this->getPixSubtotal(is_array($items) ? $items : []);
+        $cartSubtotal = max(0.0, (float) ($result['subtotalAmount'] ?? 0));
+        $installment = $this->installmentCalculator->calculate(
+            $cartSubtotal,
+            $this->config->getInstallmentNumber(),
+            $this->config->getMinimumInstallmentAmount()
+        );
 
-            foreach ($collection as $product) {
-                // Pix discount calculation for the product
-                $pixFinalPrice = $this->getProductFinalPriceWithDiscount($product,"pix", "bp_pix_discount");
-
-                foreach ($result['items'] as $item) {
-                    if ($item['product_id'] == $product->getId()) {
-
-                        // Multiplying the product value by the quantity added to the cart and adding the value to the total sum
-                        $pixSubtotalAmountWithDiscount = $pixSubtotalAmountWithDiscount + ($pixFinalPrice * $item['qty']);
-                    }
-                }
-            }
-        }
-
-        $cartSubTotal = (float) $result['subtotalAmount'];
-        $instalmentPrice = round($cartSubTotal / $installmentNumber, 2);
-
-        if($instalmentPrice < $this->helper->getMinimalInstallmentAmount()){
-            $installmentNumber = floor($cartSubTotal / $this->helper->getMinimalInstallmentAmount());
-            if($installmentNumber <= 0){
-                $installmentNumber = 1;
-            }
-            $instalmentPrice = round($cartSubTotal / $installmentNumber, 2);
-        }
-
-        $result['bp_pix_minicart_subtotal_formated'] = $this->princingHelper->currency($pixSubtotalAmountWithDiscount);
-        $result['bp_pix_minicart_subtotal_value'] = $pixSubtotalAmountWithDiscount;
-        $result['bp_pix_text'] = __(" no pix");
-        $result['bp_installments'] = __("ou em até %1x de %2 sem juros no cartão", $installmentNumber, $this->princingHelper->currency($instalmentPrice));
+        $result['bp_pix_minicart_subtotal_formatted'] = $this->pricingHelper->currency($pixSubtotal);
+        $result['bp_pix_minicart_subtotal_value'] = $pixSubtotal;
+        $result['bp_pix_text'] = __(' via PIX');
+        $result['bp_installments'] = __(
+            'or in up to %1 installments of %2 without interest on the credit card',
+            $installment->count,
+            $this->pricingHelper->currency($installment->amount)
+        );
 
         return $result;
     }
 
-    private function priceGrouped($product) : float
+    /**
+     * Calculate the informational PIX subtotal using each quote item's unit price.
+     *
+     * @param array<int, array<string, mixed>> $items
+     */
+    private function getPixSubtotal(array $items): float
     {
-        $_associatedProducts = $product->getTypeInstance()->getAssociatedProducts($product);
-        $finalPrice = 0;
-        foreach ($_associatedProducts as $_item) {
-            $finalPrice += $_item->getFinalPrice() * $_item->getQty();
+        $itemsByProduct = $this->groupItemsByProduct($items);
+        if ($itemsByProduct === []) {
+            return 0.0;
         }
 
-        return $finalPrice;
+        $collection = $this->productCollectionFactory->create();
+        $collection->addAttributeToSelect([
+            'price',
+            'special_price',
+            'special_from_date',
+            'special_to_date',
+            ProductAttribute::DISCOUNT_PER_GROUP,
+            ProductAttribute::PIX_DISCOUNT,
+        ]);
+        $collection->addFieldToFilter('entity_id', ['in' => array_keys($itemsByProduct)]);
+
+        $subtotal = 0.0;
+        foreach ($collection as $product) {
+            $discount = $this->discountResolver->getDiscount($product, PaymentMethod::PIX);
+            $fallbackPrice = null;
+
+            foreach ($itemsByProduct[(int) $product->getId()] ?? [] as $item) {
+                $price = $item['price'];
+                if ($price === null) {
+                    $fallbackPrice ??= $this->priceCalculator->getFinalPrice($product);
+                    $price = $fallbackPrice;
+                }
+
+                $subtotal += $this->discountResolver->getDiscountedPrice($price, $discount)
+                    * $item['quantity'];
+            }
+        }
+
+        return round($subtotal, 2);
     }
 
-    private function priceSimple($product)
+    /**
+     * Normalize and group cart rows without merging different option prices.
+     *
+     * @param array<int, array<string, mixed>> $items
+     * @return array<int, array<int, array{quantity: float, price: ?float}>>
+     */
+    private function groupItemsByProduct(array $items): array
     {
-        return (float) $product->getTierPrices() ? min($product->getFinalPrice(), $product->getTierPrice(1)) : $product->getFinalPrice();
-    }
+        $itemsByProduct = [];
 
-    public function getProductFinalPriceWithDiscount($product, $productArrayKey, $storeUrlKey)
-    {
-        $productFinalPrice = match ($product->getTypeId()) {
-            "grouped" => $this->priceGrouped($product),
-            "simple" => $this->priceSimple($product),
-            default => $product->getFinalPrice()
-        };
-        $pixDiscountPercent = $this->helper->getDiscountData($product, $productArrayKey, $storeUrlKey);
-        $pixDiscount = $productFinalPrice * $pixDiscountPercent / 100;
-        return round($productFinalPrice - $pixDiscount, 2);
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $productId = (int) ($item['product_id'] ?? 0);
+            $quantity = $item['qty'] ?? null;
+            if ($productId <= 0 || !is_numeric($quantity) || (float) $quantity <= 0) {
+                continue;
+            }
+
+            $price = $item['product_price_value'] ?? null;
+            $price = is_numeric($price) && is_finite((float) $price)
+                ? max(0.0, (float) $price)
+                : null;
+
+            $itemsByProduct[$productId][] = [
+                'quantity' => (float) $quantity,
+                'price' => $price,
+            ];
+        }
+
+        return $itemsByProduct;
     }
 }
